@@ -11,6 +11,16 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
+// ADDED MISSING PROTOTYPES HERE FOR THE COMPILER
+void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed);
+void Robot_Forward(uint16_t speed);
+void Robot_Stop(void);
+void Robot_TurnRight(uint16_t speed);
+
+/* Robot Speed Tuning Settings ----------------------------------------------*/
+uint16_t Base_Speed =600;     // Your main forward power
+uint16_t Left_Speed_Offset =0 ; // Change this number to balance the wheels!
+
 /* Master Speed Control Function (0 = Stopped, 999 = Max Speed) -------------*/
 void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, left_speed);  // Controls ENA (D6)
@@ -19,56 +29,45 @@ void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
 
 /* Robot Movement Functions --------------------------------------------------*/
 
-// 1. FORWARD
+/* Updated Robot Forward Function */
 void Robot_Forward(uint16_t speed) {
-    Set_Motor_Speed(speed, speed);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // D2 (IN1) = 1
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET); // D3 (IN2) = 0
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // D4 (IN3) = 1
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // D5 (IN4) = 0
+    // Left motor gets a boost or cut based on your offset variable
+    uint16_t left_side  = speed - Left_Speed_Offset;
+    uint16_t right_side = speed;
+
+    Set_Motor_Speed(left_side, right_side);
+
+    // Core forward direction pins
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // D2 (IN1)
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET); // D3 (IN2)
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // D4 (IN3)
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // D5 (IN4)
 }
 
-// 2. STOP
-void Robot_Stop(void) {
-    // 1. Force the PWM timer counters to 0 immediately to cut all power
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0); // ENA = 0
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0); // ENB = 0
-
-    // 2. Clear all direction pins to ground out the motor windings
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // D2 = 0
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET); // D3 = 0
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET); // D4 = 0
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // D5 = 0
-
-    // 3. Tiny delay to allow the hardware registers to latch the stop state
-    HAL_Delay(10);
-}
-
-// 3. TURN RIGHT
+/* Robot Turn Right Function */
 void Robot_TurnRight(uint16_t speed) {
+    // Turns use a fixed speed so it doesn't spin out of control
     Set_Motor_Speed(speed, speed);
+
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // Left Forward
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET); // Right Stop
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
 }
 
-// 4. TURN LEFT
-void Robot_TurnLeft(uint16_t speed) {
-    Set_Motor_Speed(speed, speed);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // Left Stop
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // Right Forward
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
-}
+/* ADDED MISSING ROBOT STOP FUNCTION WITH HARD BRAKING */
+void Robot_Stop(void) {
+    // Cut all PWM generation immediately
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
 
-// 5. U-TURN
-void Robot_UTurn(uint16_t speed) {
-    Set_Motor_Speed(speed, speed);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // Left Forward
+    // Pull all H-Bridge logic pins LOW to stall the motors
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET); // Right Backward
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
+
+    HAL_Delay(10); // Small stability buffer for electrical settling
 }
 
 /**
@@ -99,47 +98,17 @@ int main(void)
     /* USER CODE BEGIN WHILE */
     while (1)
     {
-        // ==========================================
-        // TEST 1: FORWARD (Both wheels spin forward)
-        // ==========================================
-        Robot_Forward(700);
-        HAL_Delay(3000);      // Run for 3 seconds
+        // ONLY RUN FORWARD FOR TESTING
+        Robot_Forward(Base_Speed);
+        HAL_Delay(3000);             // Drives forward for 3 seconds
 
+        // STOP AND STAY STILL SO YOU CAN RESET ITS POSITION
         Robot_Stop();
-        HAL_Delay(2000);      // Stop completely for 2 seconds
-
-        // ==========================================
-        // TEST 2: TURN RIGHT (Left forward, Right stops)
-        // ==========================================
-        Robot_TurnRight(600);
-        HAL_Delay(2000);      // Run for 2 seconds
-
-        Robot_Stop();
-        HAL_Delay(2000);      // Stop completely for 2 seconds
-
-        // ==========================================
-        // TEST 3: TURN LEFT (Right forward, Left stops)
-        // ==========================================
-        Robot_TurnLeft(600);
-        HAL_Delay(2000);      // Run for 2 seconds
-
-        Robot_Stop();
-        HAL_Delay(2000);      // Stop completely for 2 seconds
-
-        // ==========================================
-        // TEST 4: U-TURN (Left forward, Right backward)
-        // ==========================================
-        Robot_UTurn(600);
-        HAL_Delay(2000);      // Run for 2 seconds
-
-        Robot_Stop();
-        HAL_Delay(5000);      // Long 5-second pause before repeating everything
-
-      /* USER CODE END WHILE */
-
-      /* USER CODE BEGIN 3 */
+        HAL_Delay(4000);             // Pauses for 4 seconds
     }
-    /* USER CODE END 3 */
+    /* USER CODE END 3 */             // Pause for 1 second
+
+
   /* USER CODE END 3 */
 }
 
