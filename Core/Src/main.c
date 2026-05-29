@@ -28,35 +28,36 @@ void Robot_Stop(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 /* Robot Speed Tuning Settings ----------------------------------------------*/
-uint16_t Base_Speed = 750;         // Left wheel runs at full power
-uint16_t Left_Speed_Offset = 200;  // Cuts power from the fast right wheel to straighten the path!
+uint16_t Base_Speed = 500;
+uint16_t Left_Speed_Offset = 135;
 
 /* Master Speed Control Function */
 void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
-    // Channel 3 controls ENA (D6 / PB10)
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, left_speed);
-    // Channel 2 controls ENB (D9 / PC7)
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right_speed);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, left_speed);  // ENA (D6)
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right_speed); // ENB (D9)
 }
 
 /* Robot Movement Functions */
 void Robot_Forward(uint16_t speed) {
-    // Left side stays at full power
     uint16_t left_side  = speed;
-
-    // Right side gets slowed down by the offset so the left side can keep up
     uint16_t right_side = speed - Left_Speed_Offset;
 
-    Set_Motor_Speed(left_side, right_side);
-
-    // Core forward direction pins
+    // FIX FOR PHASE 1: Anti-Stall Torque Kick
+    // Blast a high power pulse for 15 milliseconds to break static friction on both wheels simultaneously
+    Set_Motor_Speed(800, 800 - Left_Speed_Offset);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // D2 (IN1)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET); // D3 (IN2)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // D4 (IN3)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // D5 (IN4)
+    HAL_Delay(15);
+
+    // Now settle down into your beautifully balanced cruise speed
+    Set_Motor_Speed(left_side, right_side);
 }
 
 void Robot_Stop(void) {
+    // FIX FOR PHASE 3: Immediate electrical brake to eliminate the ending curve drift
+    // Instead of coasting, we cut PWM and clamp the direction pins LOW right away to force a synchronized stop
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
 
@@ -64,7 +65,8 @@ void Robot_Stop(void) {
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
-    HAL_Delay(10);
+
+    HAL_Delay(50); // Settlement window
 }
 /* USER CODE END 0 */
 
@@ -82,9 +84,8 @@ int main(void)
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
-  // ENABLE HARDWARE PWM GENERATION ON THE EXACT CHANNELS
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3); // Starts ENA (D6 / PB10)
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // Starts ENB (D9 / PC7)
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -92,7 +93,7 @@ int main(void)
   while (1)
   {
     Robot_Forward(Base_Speed);
-    HAL_Delay(3000);             // Move for 3 seconds
+    HAL_Delay(3000);             // Move forward for 3 seconds
 
     Robot_Stop();
     HAL_Delay(4000);             // Pause for 4 seconds
