@@ -1,3 +1,12 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
 /* Private variables ---------------------------------------------------------*/
@@ -9,31 +18,34 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
-// ADDED MISSING PROTOTYPES HERE FOR THE COMPILER
+/* USER CODE BEGIN PFP */
 void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed);
 void Robot_Forward(uint16_t speed);
 void Robot_Stop(void);
-void Robot_TurnRight(uint16_t speed);
+/* USER CODE END PFP */
 
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
 /* Robot Speed Tuning Settings ----------------------------------------------*/
-uint16_t Base_Speed =600;     // Your main forward power
-uint16_t Left_Speed_Offset =0 ; // Change this number to balance the wheels!
+uint16_t Base_Speed = 750;         // Left wheel runs at full power
+uint16_t Left_Speed_Offset = 200;  // Cuts power from the fast right wheel to straighten the path!
 
-/* Master Speed Control Function (0 = Stopped, 999 = Max Speed) -------------*/
+/* Master Speed Control Function */
 void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, left_speed);  // Controls ENA (D6)
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right_speed); // Controls ENB (D9)
+    // Channel 3 controls ENA (D6 / PB10)
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, left_speed);
+    // Channel 2 controls ENB (D9 / PC7)
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right_speed);
 }
 
-/* Robot Movement Functions --------------------------------------------------*/
-
-/* Updated Robot Forward Function */
+/* Robot Movement Functions */
 void Robot_Forward(uint16_t speed) {
-    // Left motor gets a boost or cut based on your offset variable
-    uint16_t left_side  = speed - Left_Speed_Offset;
-    uint16_t right_side = speed;
+    // Left side stays at full power
+    uint16_t left_side  = speed;
+
+    // Right side gets slowed down by the offset so the left side can keep up
+    uint16_t right_side = speed - Left_Speed_Offset;
 
     Set_Motor_Speed(left_side, right_side);
 
@@ -44,41 +56,24 @@ void Robot_Forward(uint16_t speed) {
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // D5 (IN4)
 }
 
-/* Robot Turn Right Function */
-void Robot_TurnRight(uint16_t speed) {
-    // Turns use a fixed speed so it doesn't spin out of control
-    Set_Motor_Speed(speed, speed);
-
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // Left Forward
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET); // Right Stop
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
-}
-
-/* ADDED MISSING ROBOT STOP FUNCTION WITH HARD BRAKING */
 void Robot_Stop(void) {
-    // Cut all PWM generation immediately
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
 
-    // Pull all H-Bridge logic pins LOW to stall the motors
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
-
-    HAL_Delay(10); // Small stability buffer for electrical settling
+    HAL_Delay(10);
 }
+/* USER CODE END 0 */
 
 /**
   * @brief  The application entry point.
   */
 int main(void)
 {
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
-  /* Configure the system clock */
   SystemClock_Config();
 
   /* Initialize all configured peripherals */
@@ -87,34 +82,29 @@ int main(void)
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
-  // START THE HARDWARE PWM GENERATION
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3); // Starts ENA Speed Pin (D6)
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // Starts ENB Speed Pin (D9)
+  // ENABLE HARDWARE PWM GENERATION ON THE EXACT CHANNELS
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3); // Starts ENA (D6 / PB10)
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // Starts ENB (D9 / PC7)
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  /* Infinite loop */
-    /* USER CODE BEGIN WHILE */
-    while (1)
-    {
-        // ONLY RUN FORWARD FOR TESTING
-        Robot_Forward(Base_Speed);
-        HAL_Delay(3000);             // Drives forward for 3 seconds
+  while (1)
+  {
+    Robot_Forward(Base_Speed);
+    HAL_Delay(3000);             // Move for 3 seconds
 
-        // STOP AND STAY STILL SO YOU CAN RESET ITS POSITION
-        Robot_Stop();
-        HAL_Delay(4000);             // Pauses for 4 seconds
-    }
-    /* USER CODE END 3 */             // Pause for 1 second
+    Robot_Stop();
+    HAL_Delay(4000);             // Pause for 4 seconds
+    /* USER CODE END WHILE */
 
-
+    /* USER CODE BEGIN 3 */
+  }
   /* USER CODE END 3 */
 }
 
 /**
   * @brief System Clock Configuration
-  * @retval None
   */
 void SystemClock_Config(void)
 {
@@ -136,12 +126,12 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
 
   if (HAL_PWREx_EnableOverDrive() != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
 
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
@@ -153,13 +143,10 @@ void SystemClock_Config(void)
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
 }
 
-/**
-  * @brief TIM2 Initialization Function
-  */
 static void MX_TIM2_Init(void)
 {
   TIM_MasterConfigTypeDef sMasterConfig = {0};
@@ -173,13 +160,13 @@ static void MX_TIM2_Init(void)
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
@@ -187,14 +174,11 @@ static void MX_TIM2_Init(void)
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
   HAL_TIM_MspPostInit(&htim2);
 }
 
-/**
-  * @brief TIM3 Initialization Function
-  */
 static void MX_TIM3_Init(void)
 {
   TIM_MasterConfigTypeDef sMasterConfig = {0};
@@ -208,13 +192,13 @@ static void MX_TIM3_Init(void)
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
@@ -222,40 +206,39 @@ static void MX_TIM3_Init(void)
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
-    while(1);
+    Error_Handler();
   }
   HAL_TIM_MspPostInit(&htim3);
 }
 
-/**
-  * @brief GPIO Initialization Function
-  */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PA10 */
   GPIO_InitStruct.Pin = GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB3 PB4 PB5 */
   GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
+
+void Error_Handler(void)
+{
+  __disable_irq();
+  while (1)
+  {
+  }
 }
