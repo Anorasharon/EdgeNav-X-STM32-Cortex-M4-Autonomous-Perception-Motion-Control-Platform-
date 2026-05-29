@@ -23,13 +23,14 @@ static void MX_TIM3_Init(void);
 void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed);
 void Robot_Forward(uint16_t speed);
 void Robot_Stop(void);
+void Robot_Drive_Smooth_Timed(uint16_t speed, uint32_t total_duration_ms);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 /* Robot Speed Tuning Settings ----------------------------------------------*/
-uint16_t Base_Speed = 500;
-uint16_t Left_Speed_Offset = 135;
+uint16_t Base_Speed = 530;         // Baseline cruise speed
+uint16_t Left_Speed_Offset = 124;  // Adjusted from 133 down to 122 to fix that late right-side turn!
 
 /* Master Speed Control Function */
 void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
@@ -37,27 +38,19 @@ void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right_speed); // ENB (D9)
 }
 
-/* Robot Movement Functions */
+/* Base Movement Actions */
 void Robot_Forward(uint16_t speed) {
     uint16_t left_side  = speed;
     uint16_t right_side = speed - Left_Speed_Offset;
+    Set_Motor_Speed(left_side, right_side);
 
-    // FIX FOR PHASE 1: Anti-Stall Torque Kick
-    // Blast a high power pulse for 15 milliseconds to break static friction on both wheels simultaneously
-    Set_Motor_Speed(800, 800 - Left_Speed_Offset);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // D2 (IN1)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET); // D3 (IN2)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // D4 (IN3)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // D5 (IN4)
-    HAL_Delay(15);
-
-    // Now settle down into your beautifully balanced cruise speed
-    Set_Motor_Speed(left_side, right_side);
 }
 
 void Robot_Stop(void) {
-    // FIX FOR PHASE 3: Immediate electrical brake to eliminate the ending curve drift
-    // Instead of coasting, we cut PWM and clamp the direction pins LOW right away to force a synchronized stop
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
 
@@ -65,8 +58,24 @@ void Robot_Stop(void) {
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
+}
 
-    HAL_Delay(50); // Settlement window
+/* NEW CONTINUOUS DRIVING FUNCTION: Eliminates the snake wobble */
+void Robot_Drive_Smooth_Timed(uint16_t speed, uint32_t total_duration_ms) {
+    // 1. SOFT LAUNCH KICK: Perfectly balanced to prevent the initial right jerk
+    Set_Motor_Speed(630, 480);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
+    HAL_Delay(40);
+
+    // 2. CONTINUOUS CRUISE: No micro-pauses means ZERO snake wiggling!
+    Robot_Forward(speed);
+    HAL_Delay(total_duration_ms - 40);
+
+    // 3. HARD BRAKE
+    Robot_Stop();
 }
 /* USER CODE END 0 */
 
@@ -92,11 +101,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    Robot_Forward(Base_Speed);
-    HAL_Delay(3000);             // Move forward for 3 seconds
-
-    Robot_Stop();
-    HAL_Delay(4000);             // Pause for 4 seconds
+    // Drive smooth and continuous for 3 seconds
+    Robot_Drive_Smooth_Timed(Base_Speed, 3000);
+    HAL_Delay(4000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
