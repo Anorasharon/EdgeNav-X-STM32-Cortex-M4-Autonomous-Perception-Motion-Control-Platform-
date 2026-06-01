@@ -100,7 +100,7 @@ Discarded input sections
  .text          0x00000000        0x0 ./Core/Src/main.o
  .data          0x00000000        0x0 ./Core/Src/main.o
  .bss           0x00000000        0x0 ./Core/Src/main.o
- .text.Robot_Turn_Left_90
+ .text.Robot_Turn_Right_90
                 0x00000000       0x5c ./Core/Src/main.o
  .group         0x00000000        0xc ./Core/Src/stm32f4xx_hal_msp.o
  .group         0x00000000        0xc ./Core/Src/stm32f4xx_hal_msp.o
@@ -2787,9 +2787,9 @@ LOAD C:/ST/STM32CubeIDE_2.1.1/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.exte
  .text.Robot_Drive_Smooth_Timed
                 0x080005b8       0xac ./Core/Src/main.o
                 0x080005b8                Robot_Drive_Smooth_Timed
- .text.Robot_Turn_Right_90
+ .text.Robot_Turn_Left_90
                 0x08000664       0x5c ./Core/Src/main.o
-                0x08000664                Robot_Turn_Right_90
+                0x08000664                Robot_Turn_Left_90
  .text.main     0x080006c0       0x78 ./Core/Src/main.o
                 0x080006c0                main
  .text.SystemClock_Config

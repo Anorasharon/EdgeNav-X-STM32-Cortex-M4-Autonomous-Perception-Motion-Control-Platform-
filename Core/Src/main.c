@@ -2,7 +2,7 @@
 /**
   * ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body with Straight Drive and 90-Degree Turns
+  * @brief          : Main program body with Straight Drive and Left Turn Tuning
   * ******************************************************************************
   */
 /* USER CODE END Header */
@@ -61,7 +61,7 @@ void Robot_Drive_Smooth_Timed(uint16_t speed, uint32_t total_duration_ms) {
 
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);   // IN1
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET); // IN2
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // IN3
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // IN3 -> FIXED
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // IN4
     HAL_Delay(100);
 
@@ -90,7 +90,6 @@ void Robot_Drive_Smooth_Timed(uint16_t speed, uint32_t total_duration_ms) {
     }
 }
 
-/* PRECISION IN-PLACE RIGHT 90-DEGREE TURN */
 /* PRECISION IN-PLACE RIGHT 90-DEGREE TURN (Clockwise into Quadrant I / IV) */
 void Robot_Turn_Right_90(uint16_t turn_speed, uint32_t duration_ms) {
     // FORCE CLOCKWISE: Left wheel moves FORWARD, Right wheel moves BACKWARD
@@ -110,7 +109,7 @@ void Robot_Turn_Left_90(uint16_t turn_speed, uint32_t duration_ms) {
     // FORCE COUNTER-CLOCKWISE: Left wheel moves BACKWARD, Right wheel moves FORWARD
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // IN1 = RESET
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_SET);   // IN2 = SET
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // IN3 = SET
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);   // IN3 = SET -> FIXED
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // IN4 = RESET
 
     Set_Motor_Speed(turn_speed, turn_speed);
@@ -138,21 +137,21 @@ int main(void)
   /* USER CODE END 2 */
 
   /* Infinite loop */
-    while (1)
-    {
-      // === STEP 1: DRIVE STRAIGHT ===
-      Robot_Drive_Smooth_Timed(Base_Speed, 2000);
-      Robot_Stop();
-      HAL_Delay(800); // Let it settle completely
+  while (1)
+  {
+    // === STEP 1: DRIVE STRAIGHT ===
+    Robot_Drive_Smooth_Timed(Base_Speed, 2000);
+    Robot_Stop();
+    HAL_Delay(800); // Settle pause
 
-      // === STEP 2: ISOLATED RIGHT TURN TUNING ===
-      // If 300 was close but not perfect, try one of the two tuning options below!
-      Robot_Turn_Right_90(550, 320);
-      Robot_Stop();
+    // === STEP 2: ISOLATED LEFT TURN TUNING ===
+    // Running left alone to check its performance at your 320ms baseline!
+    Robot_Turn_Left_90(550, 260);
+    Robot_Stop();
 
-      // === STEP 3: LONG PARK (Gives you time to check the angle) ===
-      HAL_Delay(5000);
-    }
+    // === STEP 3: LONG PARK ===
+    HAL_Delay(5000); // 5 seconds standstill
+  }
 }
 
 /* --- Auto-generated STM32 Peripherals Configurations --- */
