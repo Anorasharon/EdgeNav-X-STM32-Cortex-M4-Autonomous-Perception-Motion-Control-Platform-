@@ -6,6 +6,7 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
+
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
@@ -30,7 +31,7 @@ void Robot_Drive_Smooth_Timed(uint16_t speed, uint32_t total_duration_ms);
 /* USER CODE BEGIN 0 */
 /* Robot Speed Tuning Settings ----------------------------------------------*/
 uint16_t Base_Speed = 530;         // Baseline cruise speed
-uint16_t Left_Speed_Offset = 124;  // Adjusted from 133 down to 122 to fix that late right-side turn!
+uint16_t Left_Speed_Offset = 122;  // Global baseline offset variable
 
 /* Master Speed Control Function */
 void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
@@ -38,7 +39,7 @@ void Set_Motor_Speed(uint16_t left_speed, uint16_t right_speed) {
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right_speed); // ENB (D9)
 }
 
-/* Base Movement Actions */
+/* Base Forward Logic */
 void Robot_Forward(uint16_t speed) {
     uint16_t left_side  = speed;
     uint16_t right_side = speed - Left_Speed_Offset;
@@ -50,31 +51,62 @@ void Robot_Forward(uint16_t speed) {
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET); // D5 (IN4)
 }
 
+/* BALANCED ACTIVE BRAKE: Prevents the shutdown tail-shake */
 void Robot_Stop(void) {
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 0);
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+    // 1. ACTIVE ELECTRONIC BRAKE: Reverse pins to fight momentum
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET); // IN1 = RESET
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_SET);   // IN2 = SET (Reverse Left)
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET); // IN3 = RESET
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_SET);   // IN4 = SET (Reverse Right)
 
+    // Give asymmetric braking power to compensate for motor differences
+    Set_Motor_Speed(560, 480); // Lowered right brake to stop the end-shake right!
+    HAL_Delay(35);             // 35ms quick counter-strike
+
+    // 2. ABSOLUTE CUTOFF: Total power shutdown
+    Set_Motor_Speed(0, 0);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
 }
 
-/* NEW CONTINUOUS DRIVING FUNCTION: Eliminates the snake wobble */
+/* CONTINUOUS DRIVING FUNCTION - Ultra-Smooth & Balanced */
+/* CONTINUOUS DRIVING FUNCTION - Balanced Straight Cruise */
+/* CONTINUOUS DRIVING FUNCTION - The 138 Sweet Spot */
+/* CONTINUOUS DRIVING FUNCTION - Solid Baseline Test */
+/* CONTINUOUS DRIVING FUNCTION - The Final Perfected Ramp */
 void Robot_Drive_Smooth_Timed(uint16_t speed, uint32_t total_duration_ms) {
-    // 1. SOFT LAUNCH KICK: Perfectly balanced to prevent the initial right jerk
-    Set_Motor_Speed(630, 480);
+    // 1. BALANCED SYNC LAUNCH (0 to 100ms)
+    // Clean, high-power launch for both wheels
+    Set_Motor_Speed(950, 900);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3,  GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5,  GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4,  GPIO_PIN_RESET);
-    HAL_Delay(40);
+    HAL_Delay(100);
 
-    // 2. CONTINUOUS CRUISE: No micro-pauses means ZERO snake wiggling!
-    Robot_Forward(speed);
-    HAL_Delay(total_duration_ms - 40);
+    // 2. PRECISION TIME-RAMP CRUISE (100ms to 7000ms)
+    uint32_t elapsed_time = 100;
+    uint16_t current_offset = 10; // Start at your perfect initial offset of 10
 
-    // 3. HARD BRAKE
+    while (elapsed_time < total_duration_ms) {
+        Set_Motor_Speed(speed, speed - current_offset);
+
+        // Check every 100ms
+        HAL_Delay(100);
+        elapsed_time += 100;
+
+        // After 3.5 seconds (3500ms), start slowly increasing the offset
+        // to prevent that late left drift!
+        if (elapsed_time > 3500) {
+            if (current_offset < 150) { // Cap it at 35 to slow the right wheel just enough
+                current_offset += 1;   // Gently step up the correction
+            }
+        }
+    }
+
+    // 3. BALANCED ACTIVE BRAKE
     Robot_Stop();
 }
 /* USER CODE END 0 */
@@ -84,7 +116,10 @@ void Robot_Drive_Smooth_Timed(uint16_t speed, uint32_t total_duration_ms) {
   */
 int main(void)
 {
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* Configure the system clock */
   SystemClock_Config();
 
   /* Initialize all configured peripherals */
@@ -93,6 +128,7 @@ int main(void)
   MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
+  /* Start PWM Channels */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   /* USER CODE END 2 */
@@ -101,14 +137,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    // Drive smooth and continuous for 3 seconds
-    Robot_Drive_Smooth_Timed(Base_Speed, 3000);
+    // Runs the multi-stage dynamic driving engine for 7 seconds
+    Robot_Drive_Smooth_Timed(Base_Speed, 7000);
+
+    // Parks clean for 4 seconds so you can verify the path alignment
     HAL_Delay(4000);
     /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
 }
 
 /**
