@@ -28,511 +28,114 @@ The robot continuously traverses its environment while monitoring for obstacles 
 
 The entire perception, processing, and control pipeline runs locally on the STM32 microcontroller.
 
----
+# 🎯 What I Built
 
-# 🎯 Project Objectives
+In this project, I designed and developed an autonomous mobile robot capable of perceiving its environment and making navigation decisions without external processing.
 
-✅ Develop an autonomous mobile robot using STM32 Cortex-M4
+The platform combines obstacle detection, RGB color sensing, motor control, and autonomous navigation into a single embedded system running entirely on the STM32F446RE ARM Cortex-M4 microcontroller.
 
-✅ Implement reliable obstacle detection
+Key implementations include:
 
-✅ Integrate RGB color perception using I2C communication
-
-✅ Execute color-based navigation decisions
-
-✅ Achieve deterministic motor control using hardware PWM
-
-✅ Demonstrate embedded real-time autonomous behavior
-
----
-
-# ✨ Key Features
-
-🚀 Autonomous Navigation
-
-🎨 RGB Color Perception
-
-🛑 Real-Time Obstacle Detection
-
-⚡ Hardware PWM Motor Control
-
-🔄 Differential Drive Architecture
-
-🧠 Autonomous Decision Engine
-
-📊 Multi-Sample Voting Algorithm
-
-🌙 Ambient Light Compensation
-
-📡 UART Runtime Diagnostics
-
-🔌 I2C Sensor Communication
-
-🛡️ Active Braking Mechanism
-
-⚙️ Deterministic Motion Control
+- IR-based obstacle detection
+- TCS34725 RGB color sensing
+- Color-based navigation logic
+- Differential drive motor control
+- Active braking mechanism
+- Multi-sample voting algorithm
+- UART debugging interface
+- Independent motor calibration using dual hardware timers
 
 ---
 
-# 🛠 Hardware Stack
+# 🛠 Hardware Used
 
-## 🧠 STM32F446RE Nucleo Board
-
-The STM32F446RE serves as the central processing unit of the platform.
-
-### Specifications
-
-- ARM Cortex-M4 Core
-- 32-bit Architecture
-- Multiple Hardware Timers
-- I2C Peripheral Interface
-- UART Communication
-- GPIO Control
-- Real-Time Processing Capability
-
----
-
-## ⚙️ L298N Dual H-Bridge Motor Driver
-
-The L298N acts as the power interface between the STM32 and the drive motors.
-
-### Functions
-
-- Bidirectional Motor Control
-- PWM Speed Regulation
-- Motor Direction Switching
-- Power Amplification
-
----
-
-## 🛞 TT Geared DC Motors
-
-Two TT geared motors provide locomotion through differential drive control.
-
-### Functions
-
-- Forward Motion
-- Turning Control
-- U-Turn Execution
-- Autonomous Navigation
-
----
-
-## 🎨 TCS34725 RGB Color Sensor
-
-Used for environmental color perception.
-
-### Measured Channels
-
-- Red
-- Green
-- Blue
-- Clear
-
----
-
-## 📍 IR Obstacle Detection Sensor
-
-Provides front obstacle detection capability.
-
-### Functions
-
-- Obstacle Monitoring
-- Navigation Trigger Generation
-- Real-Time Event Detection
+- STM32F446RE Nucleo Board
+- TCS34725 RGB Color Sensor
+- IR Obstacle Detection Sensor
+- L298N Dual H-Bridge Motor Driver
+- TT Geared DC Motors
+- Buck Converter
+- Lithium Battery Pack
+- Toggle Switch
 
 ---
 
 # 💻 Software Stack
 
-| Category | Technology |
-|-----------|------------|
-| Programming Language | Embedded C |
-| IDE | STM32CubeIDE |
-| Configuration Tool | STM32CubeMX |
-| Version Control | Git |
-| Repository Hosting | GitHub |
-| Sensor Interface | I2C |
-| Debug Interface | UART |
-| Motor Control | PWM |
-| Logic Control | GPIO |
+- Embedded C
+- STM32CubeIDE
+- STM32CubeMX
+- STM32 HAL
+- Git
+- GitHub
 
 ---
 
-# 🏗 System Architecture
+# 🧠 What I Learned
 
-The platform follows a perception-action workflow.
+Through the development of this project, I gained practical experience in:
 
-```text
-Move Forward
-      ↓
-Detect Obstacle
-      ↓
-Apply Active Brake
-      ↓
-Stabilize System
-      ↓
-Acquire RGB Samples
-      ↓
-Normalize Values
-      ↓
-Color Classification
-      ↓
-Navigation Decision
-      ↓
-Execute Action
-      ↓
-Resume Navigation
-```
+- STM32 peripheral configuration
+- GPIO programming
+- UART communication
+- I2C sensor interfacing
+- PWM generation and motor control
+- Differential drive robotics
+- Embedded debugging and testing
+- Hardware-software integration
+- Git and GitHub workflow
+- Technical documentation
 
 ---
 
-# ⚙️ Motion Control Architecture
+# 🚧 Engineering Challenges & Solutions
 
-The robot utilizes a differential drive mechanism powered by two TT geared motors.
+### Motor Drift
 
-Independent wheel control enables:
+The TT motors exhibited different rotational characteristics, causing the robot to drift during straight-line movement.
 
-- Forward Movement
-- Left Turn
-- Right Turn
-- U-Turn
-- Active Braking
-- Motion Correction
+**Solution:** I utilized TIM2 and TIM3 independently to calibrate the left and right motor speeds.
 
-This architecture provides a simple yet effective solution for autonomous navigation.
+### Color Detection Instability
 
----
+Ambient lighting conditions affected RGB sensor readings.
 
-# 🔥 PWM Motor Control
+**Solution:** I implemented RGB normalization and a five-sample voting algorithm to improve classification reliability.
 
-Hardware-generated PWM signals regulate motor speed.
+### I2C Bus Lockups
 
-## Left Motor
+The color sensor occasionally became unresponsive due to electrical noise.
 
-```text
-Timer   : TIM3
-Channel : CH2
-Output  : D9
-```
+**Solution:** I developed an I2C recovery sequence that resets the bus during startup.
 
-## Right Motor
+### Stopping Accuracy
 
-```text
-Timer   : TIM2
-Channel : CH3
-Output  : D11
-```
+The robot continued moving after power removal due to inertia.
 
-PWM-based speed control enables smooth motor operation while minimizing power loss.
-
----
-
-# 🧠 Why Two Separate Hardware Timers?
-
-Instead of generating both PWM signals from a single timer, the system uses:
-
-```text
-TIM3 Channel 2 → Left Motor
-TIM2 Channel 3 → Right Motor
-```
-
-### 🎯 Independent Speed Calibration
-
-Each motor can be tuned individually.
-
-Example:
-
-```text
-Left Motor PWM  = 450
-Right Motor PWM = 430
-```
-
-This compensates for manufacturing differences between motors.
-
----
-
-### 🚧 Challenge: Robot Drift
-
-During testing, the robot consistently drifted while attempting straight-line motion.
-
-### Root Cause
-
-The TT motors exhibited unequal rotational characteristics.
-
-### Solution
-
-Separate timer resources enabled independent PWM calibration.
-
-Result:
-
-✅ Improved straight-line stability
-
-✅ Better navigation accuracy
-
----
-
-### 🎯 Enhanced Motion Accuracy
-
-Independent timer channels provide greater flexibility for:
-
-- Turn Calibration
-- Braking Optimization
-- Motion Correction
-- Navigation Tuning
-
----
-
-# 🛑 Active Braking System
-
-### Problem
-
-Removing motor power alone resulted in excessive stopping distance due to inertia.
-
-### Solution
-
-An active reverse braking mechanism was implemented.
-
-### Procedure
-
-```text
-Reverse Motor Direction
-        ↓
-Apply Reverse Torque
-        ↓
-Cut Motor Power
-```
-
-### Benefits
-
-✅ Reduced Overshoot
-
-✅ Faster Stopping
-
-✅ Improved Positioning
-
-✅ Better Sensor Stability
-
----
-
-# 🎨 Color Perception Engine
-
-The TCS34725 sensor measures:
-
-```text
-Red Intensity
-Green Intensity
-Blue Intensity
-Clear Intensity
-```
-
-These values are processed to classify the detected color.
-
----
-
-# 🌙 Ambient Light Compensation
-
-Raw RGB values vary under different lighting conditions.
-
-To overcome this challenge, color values are normalized using the Clear channel.
-
-### Formula
-
-```text
-R_scaled = (Red × 255) / Clear
-G_scaled = (Green × 255) / Clear
-B_scaled = (Blue × 255) / Clear
-```
-
-### Benefits
-
-✅ Improved Classification Accuracy
-
-✅ Robust Low-Light Operation
-
-✅ Reduced Lighting Dependency
-
----
-
-# 🗳 Multi-Sample Voting Engine
-
-### Problem
-
-Single sensor measurements occasionally produced unstable classifications.
-
-### Solution
-
-Five independent samples are collected.
-
-Each sample votes for:
-
-- Red
-- Green
-- Blue
-- White
-
-The final decision is determined through majority voting.
-
-### Example
-
-```text
-Sample 1 → Green
-Sample 2 → Green
-Sample 3 → Green
-Sample 4 → Blue
-Sample 5 → Green
-
-Final Result → Green
-```
-
-Result:
-
-✅ Improved Reliability
-
-✅ Noise Reduction
-
-✅ Better Classification Confidence
-
----
-
-# 🚦 Navigation Decision Engine
-
-| Detected Color | Action |
-|---------------|---------|
-| ⚪ White | U-Turn |
-| 🔴 Red | Stop for 5 Seconds |
-| 🟢 Green | Turn Right |
-| 🔵 Blue | Turn Left |
-
-The robot autonomously translates sensor perception into navigation behavior.
-
----
-
-# 📡 Communication Interfaces
-
-## I2C1
-
-Used For:
-
-- TCS34725 Color Sensor
-
-Benefits:
-
-✅ Low Pin Count
-
-✅ Reliable Communication
-
-✅ Industry Standard Interface
-
----
-
-## UART2
-
-Used For:
-
-- Runtime Diagnostics
-- Sensor Monitoring
-- Debug Logging
-
-Example Output:
-
-```text
-Obstacle Detected
-
-Sample 1:
-R=220 G=40 B=35
-
-Decision = RED
-```
-
-UART logging significantly accelerated development and troubleshooting.
-
----
-
-# 🌟 Technical Highlights
-
-✅ ARM Cortex-M4 Architecture
-
-✅ Dual Hardware Timer PWM Control
-
-✅ Differential Drive Navigation
-
-✅ Active Braking Mechanism
-
-✅ Multi-Sample Voting Algorithm
-
-✅ Ambient-Light Compensation
-
-✅ I2C Bus Recovery Logic
-
-✅ Real-Time Embedded Processing
-
-✅ Autonomous Decision Making
-
-✅ Deterministic Motion Control
-
----
-
-# 📑 Documentation
-
-A detailed engineering report is included within this repository.
-
-The report covers:
-
-- Hardware Architecture
-- Software Design
-- STM32 Peripheral Configuration
-- Pin Mapping
-- System Flowcharts
-- Motor Control Design
-- Perception Algorithms
-- Engineering Challenges
-- Root Cause Analysis
-- Implemented Solutions
-- Validation Results
-- Future Enhancements
-
-📄 Refer to:
-
-```text
-Project_Report.pdf
-```
-
-for complete technical documentation.
+**Solution:** I implemented an active braking mechanism using reverse motor torque before disabling the motors.
 
 ---
 
 # 🏆 Results
 
-The platform successfully demonstrates:
-
-✅ Autonomous Navigation
-
-✅ Real-Time Obstacle Detection
-
-✅ Reliable Color Recognition
-
-✅ Color-Based Route Selection
-
-✅ Stable Motion Control
-
-✅ Embedded Decision-Making
-
-All sensing, processing, classification, and navigation functions execute entirely onboard the STM32 Cortex-M4 microcontroller.
+- Successfully implemented autonomous navigation
+- Reliable obstacle detection
+- Stable RGB color recognition
+- Accurate left, right, and U-turn execution
+- Improved straight-line motion through dual-timer calibration
+- Real-time decision making on STM32 Cortex-M4
 
 ---
 
-# 🚀 Future Enhancements
+# 📑 Documentation
 
-- FreeRTOS Integration
-- Encoder-Based Closed Loop Control
-- Bluetooth Connectivity
-- Wireless Telemetry
-- Camera-Based Vision Processing
-- Edge AI Integration
-- Object Detection
-- SLAM Navigation
-- Autonomous Path Planning
+The repository includes:
+
+- STM32CubeIDE Project
+- Embedded C Source Code
+- Hardware Images
+- Project Report
+- System Documentation
 
 ---
 
@@ -540,10 +143,12 @@ All sensing, processing, classification, and navigation functions execute entire
 
 ### Anora Sharon Tessie
 
-Embedded Systems • IoT • Robotics • Edge AI
+Embedded Systems • Robotics • IoT • Edge AI
 
 ---
 
 # 📜 License
 
-This project is intended for educational, research, and embedded systems development purposes.
+This project is intended for educational, research, and embedded systems learning purposes.
+
+---
